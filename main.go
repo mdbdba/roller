@@ -12,19 +12,19 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/justinian/dice"
+	"github.com/mdbdba/dice"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	roll := query.Get("roll")
 	if roll == "" {
-		roll = "6d1"   // return a 6
+		roll = "6d1" // return a 6
 	}
 	log.Printf("Received request for %s\n", roll)
 	w.Write([]byte(fmt.Sprintf("Received request for %s\n", roll)))
 	res, _, _ := dice.Roll(roll)
-		//Roll(roll)
+	//Roll(roll)
 	log.Printf("Roll result: %d\n", res.Int())
 	w.Write([]byte(fmt.Sprintf("Roll result:  %d\n", res.Int())))
 }
