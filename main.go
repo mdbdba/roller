@@ -15,7 +15,6 @@ import (
 	"github.com/mdbdba/dice"
 )
 
-// temp comment...
 func handler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	roll := query.Get("roll")
