@@ -13,19 +13,36 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mdbdba/dice"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/stdout"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
+var tracer = otel.Tracer("mux-server")
+
 func handler(w http.ResponseWriter, r *http.Request) {
+
 	query := r.URL.Query()
 	roll := query.Get("roll")
 	if roll == "" {
 		roll = "11d1" // return a 11
 	}
-	log.Printf("Received request for %s\n", roll)
+	_, span := tracer.Start(r.Context(), "rollHandler",
+		oteltrace.WithAttributes(attribute.String("request", roll)))
+	defer span.End()
+
+	// log.Printf("Received request for %s\n", roll)
 	w.Write([]byte(fmt.Sprintf("Received request for %s\n", roll)))
 	res, _, _ := dice.Roll(roll)
 
-	log.Printf("Roll result: %d\n", res.Int())
+	span.SetAttributes(attribute.String("request", roll),
+		attribute.Int("result", res.Int()),
+		attribute.String("audit", res.String()))
+
 	w.Write([]byte(fmt.Sprintf("Roll result:  %d\n", res.Int())))
 }
 
@@ -37,11 +54,29 @@ func readinessHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func initTracer() {
+	exporter, err := stdout.NewExporter(stdout.WithPrettyPrint())
+	if err != nil {
+		log.Fatal(err)
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSyncer(exporter),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+}
+
 func main() {
+	initTracer()
 	rand.Seed(time.Now().UnixNano())
 
 	// Create Server and Route Handlers
 	r := mux.NewRouter()
+	r.Use(otelmux.Middleware("go-kuberoll"))
 
 	r.HandleFunc("/", handler)
 	r.HandleFunc("/health", healthHandler)
