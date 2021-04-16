@@ -6,11 +6,14 @@ import (
 	"go.opentelemetry.io/otel/exporters/trace/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/semconv"
-	"log"
+	"go.uber.org/zap"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,17 +26,34 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
+var logger *zap.Logger
 var tracer = otel.Tracer("mux-server")
 var readiness = http.StatusServiceUnavailable
 
+func init() {
+	logger, _ = zap.NewProduction()
+	zap.ReplaceGlobals(logger)
+}
+
+func isTest(rollDesc string) (bool, int) {
+	p1 := "5|7|9|11d1$"
+	res, _ := regexp.MatchString(p1, rollDesc)
+	rolls := 0
+	if res {
+		rolls, _ = strconv.Atoi(strings.Split(rollDesc, "d")[0])
+	}
+	return res, rolls
+}
+
 func getRoll(ctx context.Context, roll string) dice.RollResult {
 	_, span := tracer.Start(ctx, "performRoll")
-	defer span.End()
-
 	span.AddEvent("callDiceRoll", oteltrace.WithAttributes(
 		attribute.String("roll", roll)))
 
 	res, _, _ := dice.Roll(roll)
+
+	span.SetAttributes(attribute.Int("rollResult", res.Int()))
+	span.End()
 
 	_, span2 := tracer.Start(ctx, "setAttributes")
 	defer span2.End()
@@ -42,11 +62,14 @@ func getRoll(ctx context.Context, roll string) dice.RollResult {
 	span2.SetAttributes(attribute.String("rollRequest", roll),
 		attribute.Int("rollResult", res.Int()),
 		attribute.String("rollAudit", auditStr))
+	logger.Info("getRoll performed", zap.String("rollAudit", auditStr))
 
 	return res
 }
+
 func handler(w http.ResponseWriter, r *http.Request) {
 
+	logger.Info("handler Triggered")
 	query := r.URL.Query()
 	roll := query.Get("roll")
 	if roll == "" {
@@ -55,14 +78,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	span := oteltrace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.String("rollRequest", roll))
-	span.AddEvent("callGetRollFunction")
+	isTestVal, nbrOfRolls := isTest(roll)
 
-	res := getRoll(ctx, roll)
+	resultNbr := 0
+	if isTestVal {
+		resultNbr = nbrOfRolls
+		span.AddEvent("TestValueDefault")
+		logger.Info("Test Value Found", zap.String("rollAudit", roll))
+	} else {
+		span.AddEvent("callGetRollFunction")
+
+		res := getRoll(ctx, roll)
+		resultNbr = res.Int()
+	}
 
 	_, span2 := tracer.Start(ctx, "writeOutput")
 	defer span2.End()
+
 	time.Sleep(100 * time.Millisecond)
-	msg := fmt.Sprintf("Received request: %s\nResult: %d\n", roll, res.Int())
+	msg := fmt.Sprintf("Received request: %s\nResult: %d\n", roll, resultNbr)
 	_, err := w.Write([]byte(msg))
 	if err != nil {
 		return
@@ -70,6 +104,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Info("healthHandler Triggered")
+	_, span := tracer.Start(r.Context(), "healthHandler")
+	defer span.End()
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte(fmt.Sprintf("OK: %d", http.StatusOK)))
 	if err != nil {
@@ -78,22 +115,13 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Info("readinessHandler Triggered")
+	_, span := tracer.Start(r.Context(), "healthHandler")
+	defer span.End()
 	w.WriteHeader(readiness)
 }
 
-func initTracer() func() {
-	// standard, err := stdout.NewExporter(stdout.WithPrettyPrint())
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// tp := sdktrace.NewTracerProvider(
-	// 	sdktrace.WithSampler(sdktrace.AlwaysSample()),
-	// 	sdktrace.WithSyncer(standard),
-	// )
-	// otel.SetTracerProvider(tp)
-	// otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{},
-	//   propagation.Baggage{}))
+func initTracer(logger *zap.Logger) func() {
 
 	// Create and install Jaeger export pipeline.
 	flush, err := jaeger.InstallNewPipeline(
@@ -107,13 +135,14 @@ func initTracer() func() {
 		),
 	)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(fmt.Sprintf("%v", err))
 	}
 	return flush
 }
 
 func main() {
-	flush := initTracer()
+
+	flush := initTracer(logger)
 	defer flush()
 	rand.Seed(time.Now().UnixNano())
 
@@ -134,9 +163,10 @@ func main() {
 
 	// Start Server
 	go func() {
-		log.Println("Starting Server")
+		logger.Info("Starting Server")
+		//log.Println("Starting Server")
 		if err := srv.ListenAndServe(); err != nil {
-			log.Fatal(err)
+			logger.Fatal(fmt.Sprintf("%v", err))
 		}
 	}()
 
@@ -144,10 +174,10 @@ func main() {
 	time.Sleep(15 * time.Second)
 	readiness = http.StatusOK
 	// Graceful Shutdown
-	waitForShutdown(srv)
+	waitForShutdown(srv, logger)
 }
 
-func waitForShutdown(srv *http.Server) {
+func waitForShutdown(srv *http.Server, logger *zap.Logger) {
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -162,6 +192,5 @@ func waitForShutdown(srv *http.Server) {
 		return
 	}
 
-	log.Println("Shutting down")
-	os.Exit(0)
+	logger.Info("Shutting down")
 }
