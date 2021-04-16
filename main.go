@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"go.opentelemetry.io/otel/exporters/trace/jaeger"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/semconv"
 	"log"
 	"math/rand"
 	"net/http"
@@ -16,8 +19,6 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/stdout"
-	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -25,6 +26,25 @@ import (
 var tracer = otel.Tracer("mux-server")
 var readiness = http.StatusServiceUnavailable
 
+func getRoll(ctx context.Context, roll string) dice.RollResult {
+	_, span := tracer.Start(ctx, "performRoll")
+	defer span.End()
+
+	span.AddEvent("callDiceRoll", oteltrace.WithAttributes(
+		attribute.String("roll", roll)))
+
+	res, _, _ := dice.Roll(roll)
+
+	_, span2 := tracer.Start(ctx, "setAttributes")
+	defer span2.End()
+	time.Sleep(100 * time.Millisecond)
+	auditStr := fmt.Sprintf("%s %s", roll, res.String())
+	span2.SetAttributes(attribute.String("rollRequest", roll),
+		attribute.Int("rollResult", res.Int()),
+		attribute.String("rollAudit", auditStr))
+
+	return res
+}
 func handler(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query()
@@ -32,26 +52,21 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if roll == "" {
 		roll = "11d1" // return a 11
 	}
-	_, span := tracer.Start(r.Context(), "rollHandler",
-		oteltrace.WithAttributes(attribute.String("request", roll)))
-	defer span.End()
+	ctx := r.Context()
+	span := oteltrace.SpanFromContext(ctx)
+	span.SetAttributes(attribute.String("rollRequest", roll))
+	span.AddEvent("callGetRollFunction")
 
-	// log.Printf("Received request for %s\n", roll)
-	_, err := w.Write([]byte(fmt.Sprintf("Received request for %s\n", roll)))
+	res := getRoll(ctx, roll)
+
+	_, span2 := tracer.Start(ctx, "writeOutput")
+	defer span2.End()
+	time.Sleep(100 * time.Millisecond)
+	msg := fmt.Sprintf("Received request: %s\nResult: %d\n", roll, res.Int())
+	_, err := w.Write([]byte(msg))
 	if err != nil {
 		return
 	}
-	res, _, _ := dice.Roll(roll)
-
-	span.SetAttributes(attribute.String("request", roll),
-		attribute.Int("result", res.Int()),
-		attribute.String("audit", res.String()))
-
-	_, err = w.Write([]byte(fmt.Sprintf("Roll result:  %d\n", res.Int())))
-	if err != nil {
-		return
-	}
-
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -66,21 +81,40 @@ func readinessHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(readiness)
 }
 
-func initTracer() {
-	exporter, err := stdout.NewExporter(stdout.WithPrettyPrint())
+func initTracer() func() {
+	// standard, err := stdout.NewExporter(stdout.WithPrettyPrint())
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// tp := sdktrace.NewTracerProvider(
+	// 	sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	// 	sdktrace.WithSyncer(standard),
+	// )
+	// otel.SetTracerProvider(tp)
+	// otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{},
+	//   propagation.Baggage{}))
+
+	// Create and install Jaeger export pipeline.
+	flush, err := jaeger.InstallNewPipeline(
+		jaeger.WithCollectorEndpoint("http://localhost:14268/api/traces"),
+		jaeger.WithSDKOptions(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithResource(resource.NewWithAttributes(
+				semconv.ServiceNameKey.String("go-kuberoll"),
+				attribute.String("exporter", "jaeger"),
+			)),
+		),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithSyncer(exporter),
-	)
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	return flush
 }
 
 func main() {
-	initTracer()
+	flush := initTracer()
+	defer flush()
 	rand.Seed(time.Now().UnixNano())
 
 	// Create Server and Route Handlers

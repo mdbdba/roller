@@ -1,4 +1,5 @@
 package main
+
 import (
 	"fmt"
 	"io"
@@ -18,6 +19,10 @@ func main() {
 		"4d6kh3",
 		"4d6kh3",
 		"1d10",
+		"1d6",
+		"1d8",
+		"1d12",
+		"1d20",
 	}
 
 	for _, roll := range rolls {

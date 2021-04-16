@@ -3,17 +3,16 @@ module github.com/mdbdba/go-kuberoll
 go 1.16
 
 require (
-	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gorilla/mux v1.8.0
+	github.com/kr/text v0.2.0 // indirect
 	github.com/mdbdba/dice v1.0.2
-	github.com/opentracing/opentracing-go v1.2.0
-	github.com/pkg/errors v0.9.1 // indirect
-	github.com/uber/jaeger-client-go v2.25.0+incompatible
-	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.19.0
 	go.opentelemetry.io/otel v0.19.0
 	go.opentelemetry.io/otel/exporters/stdout v0.19.0
+	go.opentelemetry.io/otel/exporters/trace/jaeger v0.19.0
 	go.opentelemetry.io/otel/sdk v0.19.0
-	go.opentelemetry.io/otel/trace v0.19.0 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
+	go.opentelemetry.io/otel/trace v0.19.0
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )
