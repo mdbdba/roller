@@ -23,6 +23,7 @@ import (
 )
 
 var tracer = otel.Tracer("mux-server")
+var readiness = http.StatusServiceUnavailable
 
 func handler(w http.ResponseWriter, r *http.Request) {
 
@@ -36,22 +37,33 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 
 	// log.Printf("Received request for %s\n", roll)
-	w.Write([]byte(fmt.Sprintf("Received request for %s\n", roll)))
+	_, err := w.Write([]byte(fmt.Sprintf("Received request for %s\n", roll)))
+	if err != nil {
+		return
+	}
 	res, _, _ := dice.Roll(roll)
 
 	span.SetAttributes(attribute.String("request", roll),
 		attribute.Int("result", res.Int()),
 		attribute.String("audit", res.String()))
 
-	w.Write([]byte(fmt.Sprintf("Roll result:  %d\n", res.Int())))
+	_, err = w.Write([]byte(fmt.Sprintf("Roll result:  %d\n", res.Int())))
+	if err != nil {
+		return
+	}
+
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte(fmt.Sprintf("OK: %d", http.StatusOK)))
+	if err != nil {
+		return
+	}
 }
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(readiness)
 }
 
 func initTracer() {
@@ -63,9 +75,6 @@ func initTracer() {
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithSyncer(exporter),
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 }
@@ -97,6 +106,9 @@ func main() {
 		}
 	}()
 
+	// wait a bit before returning a positive readiness check.
+	time.Sleep(15 * time.Second)
+	readiness = http.StatusOK
 	// Graceful Shutdown
 	waitForShutdown(srv)
 }
@@ -111,7 +123,10 @@ func waitForShutdown(srv *http.Server) {
 	// Create a deadline to wait for.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	srv.Shutdown(ctx)
+	err := srv.Shutdown(ctx)
+	if err != nil {
+		return
+	}
 
 	log.Println("Shutting down")
 	os.Exit(0)
