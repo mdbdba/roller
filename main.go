@@ -115,9 +115,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("healthHandler Triggered")
-	_, span := tracer.Start(r.Context(), "healthHandler")
-	defer span.End()
+	/*
+		// "Yeah, but your scientists were so preoccupied with whether or not they could,
+		// they didn't stop to think if they should."  -- Dr. Ian Malcolm
+		// AKA A good example of something that'll fill up your logs without providing value.
+		logger.Info("healthHandler Triggered")
+		_, span := tracer.Start(r.Context(), "healthHandler")
+		defer span.End()
+	*/
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte(fmt.Sprintf("OK: %d", http.StatusOK)))
 	if err != nil {
@@ -126,9 +131,14 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("readinessHandler Triggered")
-	_, span := tracer.Start(r.Context(), "healthHandler")
-	defer span.End()
+	/*
+		// "Yeah, but your scientists were so preoccupied with whether or not they could,
+		// they didn't stop to think if they should."  -- Dr. Ian Malcolm
+		// AKA A good example of something that'll fill up your logs without providing value.
+		logger.Info("readinessHandler Triggered")
+		_, span := tracer.Start(r.Context(), "healthHandler")
+		defer span.End()
+	*/
 	w.WriteHeader(readiness)
 }
 
