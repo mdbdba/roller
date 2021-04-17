@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	muxMonitor "github.com/labbsr0x/mux-monitor"
@@ -27,15 +28,28 @@ import (
 	"time"
 )
 
+type FakeDependencyChecker struct{}
+type relationArg struct {
+	Name     string
+	Arg      string
+	Priority int
+}
+
 var logger *zap.Logger
 var tracer = otel.Tracer("mux-server")
 var readiness = http.StatusServiceUnavailable
-
-type FakeDependencyChecker struct{}
+var relationArgs []relationArg
 
 func init() {
 	logger, _ = zap.NewProduction()
 	zap.ReplaceGlobals(logger)
+
+	relationArgs = []relationArg{
+		{"primary", "roll=5d1", 1},
+		{"secondary", "roll=7d1", 1},
+		{"ancillary", "roll=9d1", 2},
+		{"notImportant", "roll=11d1", 3},
+	}
 }
 
 func (m *FakeDependencyChecker) GetDependencyName() string {
@@ -115,9 +129,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("healthHandler Triggered")
-	_, span := tracer.Start(r.Context(), "healthHandler")
-	defer span.End()
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte(fmt.Sprintf("OK: %d", http.StatusOK)))
 	if err != nil {
@@ -126,10 +137,15 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("readinessHandler Triggered")
-	_, span := tracer.Start(r.Context(), "healthHandler")
-	defer span.End()
 	w.WriteHeader(readiness)
+}
+
+func relationHandler(w http.ResponseWriter, r *http.Request) {
+	relationJson, _ := json.Marshal(relationArgs)
+	_, err := w.Write([]byte(fmt.Sprintf("%s\n", relationJson)))
+	if err != nil {
+		return
+	}
 }
 
 func initTracer(logger *zap.Logger) func() {
@@ -176,6 +192,7 @@ func main() {
 	r.HandleFunc("/", handler)
 	r.HandleFunc("/health", healthHandler)
 	r.HandleFunc("/readiness", readinessHandler)
+	r.HandleFunc("/relation", relationHandler)
 	r.Handle("/metrics", promhttp.Handler()).Methods(http.MethodGet)
 
 	srv := &http.Server{
