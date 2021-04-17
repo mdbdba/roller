@@ -46,10 +46,6 @@ func (m *FakeDependencyChecker) Check() muxMonitor.DependencyStatus {
 	return muxMonitor.DOWN
 }
 
-func YourHandler(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte("mux-monitor!\n"))
-}
-
 func isTest(rollDesc string) (bool, int) {
 	p1 := "5|7|9|11d1$"
 	res, _ := regexp.MatchString(p1, rollDesc)
@@ -137,10 +133,15 @@ func readinessHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func initTracer(logger *zap.Logger) func() {
+	traceHost, envVarExists := os.LookupEnv("JAEGER_AGENT_HOST")
 
+	endPointStr := "http://bogus:14268/api/traces"
+	if envVarExists {
+		endPointStr = fmt.Sprintf("http://%s:14268/api/traces", traceHost)
+	}
 	// Create and install Jaeger export pipeline.
 	flush, err := jaeger.InstallNewPipeline(
-		jaeger.WithCollectorEndpoint("http://localhost:14268/api/traces"),
+		jaeger.WithCollectorEndpoint(endPointStr),
 		jaeger.WithSDKOptions(
 			sdktrace.WithSampler(sdktrace.AlwaysSample()),
 			sdktrace.WithResource(resource.NewWithAttributes(
