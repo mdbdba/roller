@@ -94,7 +94,6 @@ func getRoll(ctx context.Context, roll string) dice.RollResult {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 
-	logger.Info("handler Triggered")
 	query := r.URL.Query()
 	roll := query.Get("roll")
 	if roll == "" {
