@@ -3,9 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/gorilla/mux"
+	muxMonitor "github.com/labbsr0x/mux-monitor"
+	"github.com/mdbdba/dice"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/trace/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"math/rand"
 	"net/http"
@@ -16,23 +25,29 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/gorilla/mux"
-	"github.com/mdbdba/dice"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 var logger *zap.Logger
 var tracer = otel.Tracer("mux-server")
 var readiness = http.StatusServiceUnavailable
 
+type FakeDependencyChecker struct{}
+
 func init() {
 	logger, _ = zap.NewProduction()
 	zap.ReplaceGlobals(logger)
+}
+
+func (m *FakeDependencyChecker) GetDependencyName() string {
+	return "fake-dependency"
+}
+
+func (m *FakeDependencyChecker) Check() muxMonitor.DependencyStatus {
+	return muxMonitor.DOWN
+}
+
+func YourHandler(w http.ResponseWriter, _ *http.Request) {
+	_, _ = w.Write([]byte("mux-monitor!\n"))
 }
 
 func isTest(rollDesc string) (bool, int) {
@@ -146,13 +161,21 @@ func main() {
 	defer flush()
 	rand.Seed(time.Now().UnixNano())
 
+	// Creates mux-monitor instance
+	monitor, err := muxMonitor.New("v1.0.0", muxMonitor.DefaultErrorMessageKey, muxMonitor.DefaultBuckets)
+	if err != nil {
+		panic(err)
+	}
 	// Create Server and Route Handlers
 	r := mux.NewRouter()
+	// Register mux-monitor middleware
+	r.Use(monitor.Prometheus)
 	r.Use(otelmux.Middleware("go-kuberoll"))
 
 	r.HandleFunc("/", handler)
 	r.HandleFunc("/health", healthHandler)
 	r.HandleFunc("/readiness", readinessHandler)
+	r.Handle("/metrics", promhttp.Handler()).Methods(http.MethodGet)
 
 	srv := &http.Server{
 		Handler:      r,
