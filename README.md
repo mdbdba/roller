@@ -1,13 +1,9 @@
 # go-kuberoll
 ## A trivial example service written in golang. 
-This service wraps code entirely based on https://github.com/justinian/dice.  The terse way the args are
-used worked perfectly for this exercise, although I'm only exercising a small bit of its
-functionality. I forked the repo and have this service pointing at that instead of the original because I've added a
-random pause during the Roll function to simulate a performance problem.
+This service wraps code entirely based on https://github.com/justinian/dice.  The terse way the args are used worked perfectly for this exercise, although I'm only exercising a small bit of its functionality. I forked the repo and have this service pointing at that instead of the original because I've added a random pause during the Roll function to simulate a performance problem.
 
 ## Features
-go-kuberoll exposes endpoints for health, readiness, metrics, and relations (or code path tracing/heat maps) 
-as well as the service's intended functionality.
+go-kuberoll exposes endpoints for health, readiness, metrics, and relations (or code path tracing/heat maps) as well as the service's intended functionality.
 
 **/health** returns a 200 status and "OK: 200"  
 **/readiness** returns a 200 status after 15 seconds of the container starting. Until then, it generates a 503  
@@ -36,15 +32,12 @@ Result: 5
 ```
 
 ## Telemetry
-go-kuberoll makes use of Uber's zap logging package, https://github.com/uber-go/zap. It is fast and has a logger 
-that enforces structured logging. All logs go to standard out. As part of logging, 
-logging for that call includes a roll audit  that shows what went into making that result.
+go-kuberoll makes use of Uber's zap logging package, https://github.com/uber-go/zap. It is fast and has a logger that enforces structured logging. All logs go to standard out. As part of logging, logging for that call includes a roll audit that shows what went into making that result.
 It uses the OpenTelemetry, https://opentelemetry.io/,  to send traces to jaeger.
 
 
 ## Special Cases
-Specific roll requests are considered special in that they would be used for live system testing, or to reveal what
-resources or services this service depends upon. These are used for that purpose.  
+Specific roll requests are considered special in that they would be used for live system testing, or to reveal what resources or services this service depends upon. These are used for that purpose.  
 roll=5d1  
 roll=7d1  
 roll=9d1  
@@ -55,12 +48,8 @@ TODO: those currently short circuit the call to the Roll and just return the exp
       listing the dependencies based on an array of a standard struct.
 
 ## Relations
-Calling the relations endpoint would be done periodically by a service whose responsibility would be to collate resource
-and service general use data.  That data would be used to answer questions regarding the paths through the system, 
-what are the most popular ones, and which are critical path (which ones make us money!)
+Calling the relations endpoint would be done periodically by a service whose responsibility would be to collate resource and service general use data.  That data would be used to answer questions regarding the paths through the system, what are the most popular ones, and which are critical path (which ones make us money!)
 
 ## Opportunities 
-The logging, tracing, and metrics initialization for the service should be isolated off and generalized in a way that
-generalizes them.  I'm most envs we won't want the spend of expensive or expansive supporting services.   That will also 
-allow for devs to be more thorough in appdev phases.
+The logging, tracing, and metrics initialization for the service should be isolated off and generalized in a way that it makes including or switching different options trivial.  In most envs we won't want the expense or expanse of P1 supporting services.   That will also allow for development to be more thorough in appdev phases.
 
