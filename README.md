@@ -1,11 +1,11 @@
 # go-kuberoll
-##A trivial example service written in golang. 
+## A trivial example service written in golang. 
 This service wraps code entirely based on https://github.com/justinian/dice.  The terse way the args are
 used worked perfectly for this exercise, although I'm only exercising a small bit of its
 functionality. I forked the repo and have this service pointing at that instead of the original because I've added a
 random pause during the Roll function to simulate a performance problem.
 
-##Features
+## Features
 go-kuberoll exposes endpoints for health, readiness, metrics, and relations (or code path tracing/heat maps) 
 as well as the service's intended functionality.
 
