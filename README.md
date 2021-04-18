@@ -2,6 +2,17 @@
 ## A trivial example service written in golang. 
 This service wraps code entirely based on https://github.com/justinian/dice.  The terse way the args are used worked perfectly for this exercise, although I'm only exercising a small bit of its functionality. I forked the repo and have this service pointing at that instead of the original because I've added a random pause during the Roll function to simulate a performance problem.
 
+## Installation
+The service makes use of an environment variable to get at the Jaeger Collector. Note the name or IP of that before installing this service.
+To install into the appdev namespace
+```
+$ cd k8s/helm/go-kuberoll
+$ kubectl create namespace appdev
+$ helm upgrade --install -n appdev \ 
+  --set jaegerAgentHost=10.100.105.117 \
+  --set service.type=LoadBalancer go-kuberoll .
+```
+
 ## Features
 go-kuberoll exposes endpoints for health, readiness, metrics, and relations (or code path tracing/heat maps) as well as the service's intended functionality.
 
