@@ -38,15 +38,27 @@ As an example, http://localhost:8080/?roll=4d8 , will sum up four rolls of an 8-
 ## Output
 Sending a roll parameter to "/", will trigger a performRoll returning output that restates the arg and the result.
 ```
-Received request: 2d4
-Result: 5
+Received request: 4d8
+Result: 21
 ```
 
 ## Telemetry
 go-kuberoll makes use of Uber's zap logging package, https://github.com/uber-go/zap. It is fast and has a logger that enforces structured logging. All logs go to standard out. As part of logging, logging for that call includes a roll audit that shows what went into making that result.
 It uses the OpenTelemetry, https://opentelemetry.io/,  to send traces to jaeger.
 
-
+## Logging
+examples of log output:  
+```
+{"level":"info","ts":1618767301.0195217,"caller":"app/main.go:206","msg":"Starting Server"}
+{"level":"info","ts":1618768506.9949932,"caller":"app/main.go:90","msg":"getRoll performed","rollAudit":"4d8 21 [1 5 7 8] ([])"}
+```
+Each audit shows:
+```
+4d8 21 [1 5 7 8]  ([])
+|   |  ind rolls  dropped
+|   result
+request
+```
 ## Special Cases
 Specific roll requests are considered special in that they would be used for live system testing, or to reveal what resources or services this service depends upon. These are used for that purpose.  
 roll=5d1  

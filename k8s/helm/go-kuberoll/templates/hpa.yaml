@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "go-kuberoll.fullname" . }}
+  name: {{ include "roller.fullname" . }}
   labels:
-    {{- include "go-kuberoll.labels" . | nindent 4 }}
+    {{- include "roller.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "go-kuberoll.fullname" . }}
+    name: {{ include "roller.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

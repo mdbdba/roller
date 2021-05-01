@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	muxMonitor "github.com/labbsr0x/mux-monitor"
-	"github.com/mdbdba/dice"
+	// "github.com/mdbdba/dice"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
@@ -70,6 +70,7 @@ func isTest(rollDesc string) (bool, int) {
 	return res, rolls
 }
 
+/* moved to roll.go
 func getRoll(ctx context.Context, roll string) dice.RollResult {
 	_, span := tracer.Start(ctx, "performRoll")
 	span.AddEvent("callDiceRoll", oteltrace.WithAttributes(
@@ -91,6 +92,7 @@ func getRoll(ctx context.Context, roll string) dice.RollResult {
 
 	return res
 }
+*/
 
 func handler(w http.ResponseWriter, r *http.Request) {
 
@@ -112,7 +114,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		span.AddEvent("callGetRollFunction")
 
-		res := getRoll(ctx, roll)
+		res := roll.getRoll(ctx, &tracer, logger, roll)
 		resultNbr = res.Int()
 	}
 
@@ -160,7 +162,7 @@ func initTracer(logger *zap.Logger) func() {
 		jaeger.WithSDKOptions(
 			sdktrace.WithSampler(sdktrace.AlwaysSample()),
 			sdktrace.WithResource(resource.NewWithAttributes(
-				semconv.ServiceNameKey.String("go-kuberoll"),
+				semconv.ServiceNameKey.String("roller"),
 				attribute.String("exporter", "jaeger"),
 			)),
 		),
@@ -186,7 +188,7 @@ func main() {
 	r := mux.NewRouter()
 	// Register mux-monitor middleware
 	r.Use(monitor.Prometheus)
-	r.Use(otelmux.Middleware("go-kuberoll"))
+	r.Use(otelmux.Middleware("roller"))
 
 	r.HandleFunc("/", handler)
 	r.HandleFunc("/health", healthHandler)
