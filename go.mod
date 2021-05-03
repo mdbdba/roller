@@ -1,4 +1,4 @@
-module github.com/mdbdba/go-kuberoll
+module github.com/mdbdba/roller
 
 go 1.16
 
