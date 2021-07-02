@@ -10,7 +10,7 @@ $ cd k8s/helm/roller
 $ kubectl create namespace appdev
 $ helm upgrade --install -n appdev \ 
   --set jaegerAgentHost=10.100.105.117 \
-  --set service.type=LoadBalancer go-kuberoll .
+  --set service.type=LoadBalancer roller .
 ```
 
 ## Features
