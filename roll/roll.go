@@ -26,11 +26,11 @@ func IsTest(rollDesc string) (bool, int) {
 func GetRoll(ctx context.Context, logger *zap.Logger, roll string) dice.RollResult {
 	span := oteltrace.SpanFromContext(ctx)
 	// _, span := tracer.Start(ctx, "performRoll")
+	// traceStr := utils.TraceID2StrImp(span.SpanContext().TraceID())
 	span.AddEvent("callDiceRoll", oteltrace.WithAttributes(
 		attribute.String("roll", roll)))
 
 	res, _, _ := dice.Roll(roll)
-
 	span.SetAttributes(attribute.Int("rollResult", res.Int()))
 	span.End()
 
@@ -42,7 +42,8 @@ func GetRoll(ctx context.Context, logger *zap.Logger, roll string) dice.RollResu
 	span2.SetAttributes(attribute.String("rollRequest", roll),
 		attribute.Int("rollResult", res.Int()),
 		attribute.String("rollAudit", auditStr))
-	logger.Info("getRoll performed", zap.String("rollAudit", auditStr))
+	logger.Info("getRoll performed", zap.String("rollAudit", auditStr),
+		zap.String("TraceID", span.SpanContext().TraceID().String()))
 
 	return res
 }
