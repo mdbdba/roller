@@ -43,7 +43,7 @@ func GetRoll(ctx context.Context, logger *zap.Logger, roll string) dice.RollResu
 		attribute.Int("rollResult", res.Int()),
 		attribute.String("rollAudit", auditStr))
 	logger.Info("getRoll performed", zap.String("rollAudit", auditStr),
-		zap.String("TraceID", span.SpanContext().TraceID().String()))
+		zap.String("traceID", span.SpanContext().TraceID().String()))
 
 	return res
 }
