@@ -69,7 +69,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer span2.End()
 
 	time.Sleep(100 * time.Millisecond)
-	msg := fmt.Sprintf("[{\"request\":\"%s\",\"result\":%d,\"traceid\":%s}]", rollRequest,
+	msg := fmt.Sprintf("[{\"request\":\"%s\",\"result\":%d,\"traceid\":\"%s\"}]", rollRequest,
 		resultNbr,
 		span.SpanContext().TraceID().String())
 	_, err := w.Write([]byte(msg))
