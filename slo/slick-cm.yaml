@@ -1,0 +1,46 @@
+apiVersion: v1
+data:
+  sre-roller-tests.json: |
+    {
+      "tests": [{
+        "metric_base_name": "roller_1_happy_path",
+        "metric_type": "counter",
+        "metric_desc": "test first happy path through roller and report success or failure.",
+        "execution_method": "url",
+        "url": "http://roller.svc:8080",
+        "execution_definition": "api/roll?request=5d1",
+        "response_type": "json",
+        "comparison_key": "result",
+        "response_evaluation_identifier": "equals",
+        "comparison_value": 5
+      },
+        {
+          "metric_base_name": "roller_2_happy_path",
+          "metric_type": "counter",
+          "metric_desc": "test second happy path through roller and report success or failure.",
+          "execution_method": "url",
+          "url": "http://roller.svc:8080",
+          "execution_definition": "api/roll?request=7d1",
+          "response_type": "json",
+          "comparison_key": "result",
+          "response_evaluation_identifier": "equals",
+          "comparison_value": 7
+        },
+        {
+          "metric_base_name": "roller_3_special_case",
+          "metric_type": "counter",
+          "metric_desc": "test special case 4d6 drop lowest one.",
+          "execution_method": "url",
+          "url": "http://roller.svc:8080",
+          "execution_definition": "api/roll?request=4d6dl1",
+          "response_type": "json",
+          "comparison_key": "result",
+          "response_evaluation_identifier": "between",
+          "comparison_value": "3-18"
+        }]
+    }
+kind: ConfigMap
+metadata:
+  name: slick-configmap-sre-roller-tests
+  namespace: appdev
+  selfLink: /api/v1/namespaces/appdev/configmaps/slick-configmap-sre-roller-tests

@@ -12,6 +12,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"net/http"
+	"time"
 )
 
 type relationArg struct {
@@ -42,7 +43,7 @@ func SetReadiness(newValue int) {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	rollRequest := query.Get("roll")
+	rollRequest := query.Get("request")
 	if rollRequest == "" {
 		rollRequest = "11d1" // return a 11
 	}
@@ -67,8 +68,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	span2 := oteltrace.SpanFromContext(ctx)
 	defer span2.End()
 
-	// time.Sleep(100 * time.Millisecond)
-	msg := fmt.Sprintf("[{\"request\":\"%s\",\"result\":%d}]", rollRequest, resultNbr)
+	time.Sleep(100 * time.Millisecond)
+	msg := fmt.Sprintf("[{\"request\":\"%s\",\"result\":%d,\"traceid\":\"%s\"}]", rollRequest,
+		resultNbr,
+		span.SpanContext().TraceID().String())
 	_, err := w.Write([]byte(msg))
 	if err != nil {
 		return
@@ -109,10 +112,10 @@ func SetupRoutes(apiBasePath string) *mux.Router {
 	r.Use(otelmux.Middleware("roller"))
 
 	handleRoll := http.HandlerFunc(handler)
-	r.Handle("/", cors.Middleware(handleRoll))
+	r.Handle(fmt.Sprintf("%s/%s", apiBasePath, rollPath), cors.Middleware(handleRoll))
 	r.HandleFunc("/health", healthHandler)
 	r.HandleFunc("/readiness", readinessHandler)
-	r.HandleFunc("/relations", relationHandler)
+	r.HandleFunc(fmt.Sprintf("%s/relations", apiBasePath), relationHandler)
 	r.Handle("/metrics", promhttp.Handler()).Methods(http.MethodGet)
 
 	return r

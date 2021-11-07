@@ -1,0 +1,78 @@
+---
+version: "prometheus/v1"
+service: "roller"
+labels:
+  owner: "sre"
+  repo: "mdbdba/roller"
+slos:
+  # We allow failing (5xx and 429) 1 request every 1000 requests (99.9%).
+  - name: "roller-requests-availability"
+    objective: 99.9
+    description: "Common SLO based on availability for HTTP request responses."
+    sli:
+      events:
+        error_query: sum(rate(promhttp_metric_handler_requests_total{code=~"(5..|429)"}[{{.window}}]))
+        total_query: sum(rate(promhttp_metric_handler_requests_total[{{.window}}]))
+    alerting:
+      name: RollerHighErrorRate
+      labels:
+        category: "availability"
+      annotations:
+        # Overwrite default Sloth SLO alert summary on ticket and page alerts.
+        summary: "High error rate on 'roller' requests responses"
+      page_alert:
+        labels:
+          severity: critical
+          routing_key: sre-team-key
+      ticket_alert:
+        labels:
+          severity: "slack"
+          slack_channel: "#alerts-sre"
+
+  # We allow failing roller_1_happy_path 1 request every 1000 requests (99.9%).
+  - name: "roller-1-happy-path-success"
+    objective: 99.99
+    description: "SLO based on the success of the roller_1_happy_path SLIck tests."
+    sli:
+      events:
+        error_query: sum(rate(roller_1_happy_path_success_total[{{.window}}]))
+        total_query: sum(rate(roller_1_happy_path_success_total[{{.window}}])) + sum(rate(roller_1_happy_path_failure_total[{{.window}}]))
+    alerting:
+      name: Roller1HappyPathSuccessRate
+      labels:
+        category: "reliability"
+      annotations:
+        # Overwrite default Sloth SLO alert summary on ticket and page alerts.
+        summary: "Roller 1 Happy Path is not working correctly"
+      page_alert:
+        labels:
+          severity: critical
+          routing_key: sre-team-key
+      ticket_alert:
+        labels:
+          severity: "slack"
+          slack_channel: "#alerts-sre"
+
+  # We want roller_1_happy_path to have less than 1 second duration 99.9% of the time.
+  - name: "roller-1-happy-path-duration"
+    objective: 99.99
+    description: "SLO based on the duration of the roller_1_happy_path SLIck tests."
+    sli:
+      events:
+        error_query: sum(rate(roller_1_happy_path_duration_nanoseconds_bucket{le="1"}[{{.window}}]))
+        total_query: sum(rate(roller_1_happy_path_duration_nanoseconds_bucket{le="+Inf"}[{{.window}}]))
+    alerting:
+      name: Roller1HappyPathDuration
+      labels:
+        category: "reliability"
+      annotations:
+        # Overwrite default Sloth SLO alert summary on ticket and page alerts.
+        summary: "Roller 1 Happy Path is running too slowly"
+      page_alert:
+        labels:
+          severity: critical
+          routing_key: sre-team-key
+      ticket_alert:
+        labels:
+          severity: "slack"
+          slack_channel: "#alerts-sre"
