@@ -21,7 +21,7 @@ roller exposes endpoints for health, readiness, metrics, and relations (or code 
 **/metrics** returns prometheus-style metrics by way of https://github.com/labbsr0x/mux-monitor  
 **/relations** returns an array of structs meant to demonstrate how a function would provide a way for a mapping service
 to interrogate this service to determine its dependencies   
-**/roll** takes a parameter called "**request**" that is formatted: 
+**/** takes a parameter called "**roll**" that is formatted: 
 
 ```
 xdy[[k|d][h|l]z][+/-c]
@@ -33,10 +33,10 @@ xdy[[k|d][h|l]z][+/-c]
        z = number of rolls to keep or drop
        +/-c = add or subtract a number (c)
 ``` 
-As an example, http://localhost:8080/roll?request=4d8 , will sum up four rolls of an 8-sided die.
+As an example, http://localhost:8080/?roll=4d8 , will sum up four rolls of an 8-sided die.
 
 ## Output
-Sending a request parameter to "/roll", will trigger a performRoll returning output that restates the arg and the result.
+Sending a request parameter to "/?roll", will trigger a performRoll returning output that restates the arg and the result.
 ```
 Received request: 4d8
 Result: 21

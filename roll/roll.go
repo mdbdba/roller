@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func IsTest(rollDesc string) (bool, int) {
@@ -37,7 +36,8 @@ func GetRoll(ctx context.Context, logger *zap.Logger, roll string) dice.RollResu
 	span2 := oteltrace.SpanFromContext(ctx)
 	// _, span2 := tracer.Start(ctx, "setAttributes")
 	defer span2.End()
-	time.Sleep(100 * time.Millisecond)
+
+	//time.Sleep(10 * time.Millisecond)
 	auditStr := fmt.Sprintf("%s %s", roll, res.String())
 	span2.SetAttributes(attribute.String("rollRequest", roll),
 		attribute.Int("rollResult", res.Int()),
